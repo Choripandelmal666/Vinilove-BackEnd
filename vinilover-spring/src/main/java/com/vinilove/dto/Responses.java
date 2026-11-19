@@ -35,6 +35,7 @@ public class Responses {
 
 	public static class UsuarioResponse {
 		public Long id;
+		public String token;
 		public String run;
 		public String correo;
 		public String nombre;

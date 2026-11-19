@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -52,6 +54,7 @@ import com.vinilove.repository.UsuarioRepository;
 @Service
 @Transactional
 public class ViniloveService {
+	private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
 	private final UsuarioRepository usuarioRepository;
 	private final PerfilVendedorRepository perfilRepository;
@@ -158,28 +161,42 @@ public class ViniloveService {
 			throw new ResponseStatusException(HttpStatus.CONFLICT, "Ese correo ya está registrado.");
 		}
 		String rol = datos.rol == null || datos.rol.isBlank() ? "cliente" : datos.rol.toLowerCase();
-		if (!rol.equals("cliente") && !rol.equals("vendedor") && !rol.equals("admin")) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El rol debe ser cliente, vendedor o admin.");
+		if (!rol.equals("cliente") && !rol.equals("vendedor")) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El rol debe ser cliente o vendedor.");
 		}
 		Usuario usuario = new Usuario();
 		usuario.setRun(datos.run);
 		usuario.setCorreo(datos.correo.trim());
 		usuario.setNombre(datos.nombre.trim());
 		usuario.setApellidos(datos.apellidos == null ? "" : datos.apellidos.trim());
-		usuario.setPassword(datos.password);
+		usuario.setPassword(passwordEncoder.encode(datos.password));
 		usuario.setRol(rol);
 		usuario.setNombreUsuario(nombreUsuarioLibre(datos.nombreUsuario, datos.nombre));
 		usuarioRepository.save(usuario);
 		if ("vendedor".equals(rol)) {
 			guardarPerfil(usuario, datos.nombreTienda, datos.descripcion, datos.ciudad);
 		}
-		return aUsuario(usuario);
+		UsuarioResponse respuesta = aUsuario(usuario);
+		return respuesta;
 	}
 
 	public UsuarioResponse login(LoginRequest datos) {
+		if (datos == null || datos.password == null) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Correo o contraseña incorrectos.");
+		}
 		Usuario usuario = usuarioRepository.findByCorreoIgnoreCase(datos.correo == null ? "" : datos.correo)
-				.filter(encontrado -> encontrado.getPassword().equals(datos.password))
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Correo o contraseña incorrectos."));
+		String passwordAlmacenada = usuario.getPassword();
+		boolean passwordValida = passwordAlmacenada.startsWith("$2")
+				? passwordEncoder.matches(datos.password, passwordAlmacenada)
+				: passwordAlmacenada.equals(datos.password);
+		if (!passwordValida) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Correo o contraseña incorrectos.");
+		}
+		if (!passwordAlmacenada.startsWith("$2")) {
+			usuario.setPassword(passwordEncoder.encode(datos.password));
+			usuarioRepository.save(usuario);
+		}
 		return aUsuario(usuario);
 	}
 
@@ -371,7 +388,7 @@ public class ViniloveService {
 			nuevo.setCorreo("admin@vinilove.com");
 			nuevo.setNombre("Admin");
 			nuevo.setApellidos("Vinilove");
-			nuevo.setPassword("admin1234");
+			nuevo.setPassword(passwordEncoder.encode("admin1234"));
 			nuevo.setRol("admin");
 			nuevo.setNombreUsuario("admin");
 			return usuarioRepository.save(nuevo);
@@ -382,7 +399,7 @@ public class ViniloveService {
 			nuevo.setCorreo("vendedor@vinilove.com");
 			nuevo.setNombre("Camila");
 			nuevo.setApellidos("Soto");
-			nuevo.setPassword("vende1234");
+			nuevo.setPassword(passwordEncoder.encode("vende1234"));
 			nuevo.setRol("vendedor");
 			nuevo.setNombreUsuario("camila");
 			Usuario guardado = usuarioRepository.save(nuevo);

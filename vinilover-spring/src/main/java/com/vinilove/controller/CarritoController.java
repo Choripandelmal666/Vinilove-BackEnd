@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import com.vinilove.dto.Requests.ItemRequest;
 import com.vinilove.dto.Responses.CarritoItemResponse;
@@ -24,11 +25,13 @@ public class CarritoController {
 	}
 
 	@GetMapping("/{usuarioId}")
+	@PreAuthorize("#p0.toString() == authentication.name or hasRole('ADMIN')")
 	public List<CarritoItemResponse> ver(@PathVariable Long usuarioId) {
 		return viniloveService.verCarrito(usuarioId);
 	}
 
 	@PutMapping("/{usuarioId}")
+	@PreAuthorize("#p0.toString() == authentication.name or hasRole('ADMIN')")
 	public List<CarritoItemResponse> reemplazar(@PathVariable Long usuarioId, @RequestBody List<ItemRequest> items) {
 		return viniloveService.reemplazarCarrito(usuarioId, items);
 	}

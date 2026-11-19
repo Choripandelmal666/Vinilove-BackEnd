@@ -3,6 +3,7 @@ package com.vinilove.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,22 +41,26 @@ public class UsuarioController {
 	}
 
 	@GetMapping("/usuarios")
+	@PreAuthorize("hasRole('ADMIN')")
 	public List<UsuarioResponse> listar() {
 		return viniloveService.listarUsuarios();
 	}
 
 	@PutMapping("/usuarios/{id}")
+	@PreAuthorize("#p0.toString() == authentication.name or hasRole('ADMIN')")
 	public UsuarioResponse actualizar(@PathVariable Long id, @RequestBody PerfilRequest datos) {
 		return viniloveService.actualizarPerfil(id, datos);
 	}
 
 	@DeleteMapping("/usuarios/{id}")
+	@PreAuthorize("#p0.toString() == authentication.name or hasRole('ADMIN')")
 	public ResponseEntity<Void> eliminar(@PathVariable Long id) {
 		viniloveService.eliminarUsuario(id);
 		return ResponseEntity.noContent().build();
 	}
 
 	@PutMapping("/vendedores/{usuarioId}")
+	@PreAuthorize("#p0.toString() == authentication.name or hasRole('ADMIN')")
 	public UsuarioResponse guardarVendedor(@PathVariable Long usuarioId, @RequestBody VendedorRequest datos) {
 		return viniloveService.guardarVendedor(usuarioId, datos);
 	}
