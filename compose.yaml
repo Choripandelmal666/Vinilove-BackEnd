@@ -1,0 +1,102 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      TZ: America/Santiago
+    ports:
+      - "${MYSQL_FORWARD_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./vinilover-sql/vinilove.sql:/docker-entrypoint-initdb.d/01-vinilove.sql:ro
+      - ./vinilover-sql/02-microservices.sql:/docker-entrypoint-initdb.d/02-microservices.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  auth-service:
+    build: ./vinilover-auth
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_NAME: vinilove_auth
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      JWT_PRIVATE_KEY: file:/run/secrets/jwt-private.pem
+      JWT_PUBLIC_KEY: file:/run/secrets/jwt-public.pem
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@vinilove.com}
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    volumes:
+      - ./secrets/jwt-private.pem:/run/secrets/jwt-private.pem:ro
+      - ./secrets/jwt-public.pem:/run/secrets/jwt-public.pem:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  catalog-service:
+    build: ./vinilover-catalog
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_NAME: vinilove_catalog
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: file:/run/secrets/jwt-public.pem
+    volumes:
+      - ./secrets/jwt-public.pem:/run/secrets/jwt-public.pem:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  cart-service:
+    build: ./vinilover-cart
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_NAME: vinilove_cart
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: file:/run/secrets/jwt-public.pem
+      CATALOG_BASE_URL: http://catalog-service:8080
+    volumes:
+      - ./secrets/jwt-public.pem:/run/secrets/jwt-public.pem:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+
+  legacy-service:
+    build: ./vinilover-spring
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vinilove?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Santiago&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: file:/run/secrets/jwt-public.pem
+    volumes:
+      - ./secrets/jwt-public.pem:/run/secrets/jwt-public.pem:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - auth-service
+      - catalog-service
+      - cart-service
+      - legacy-service
+
+volumes:
+  mysql_data:
