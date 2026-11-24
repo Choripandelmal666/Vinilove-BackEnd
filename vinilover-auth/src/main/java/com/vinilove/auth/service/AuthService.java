@@ -203,7 +203,13 @@ private String texto(Object valor) {
 		if (datos.fotoPerfil() != null && !datos.fotoPerfil().isBlank()) {
 			usuario.fotoPerfil = datos.fotoPerfil();
 		}
-		return respuesta(usuario, null);
+		usuarios.save(usuario);
+		return respuesta(usuario, tokens.emitir(usuario));
+	}
+
+	public UsuarioResponse renovar(Long id) {
+		Usuario usuario = obligatorio(id);
+		return respuesta(usuario, tokens.emitir(usuario));
 	}
 
 	public UsuarioResponse guardarVendedor(Long id, VendedorRequest datos) {

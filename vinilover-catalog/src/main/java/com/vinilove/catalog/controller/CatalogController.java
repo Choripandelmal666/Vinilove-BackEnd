@@ -54,7 +54,7 @@ public class CatalogController {
 	}
 
 	@PostMapping("/productos")
-	@PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<ProductoResponse> crearProducto(@RequestBody ProductoRequest datos, @AuthenticationPrincipal Jwt jwt) {
 		Producto producto = new Producto();
 		producto.id = datos.id() == null || datos.id().isBlank() ? slug(datos.nombre()) + "-" + System.currentTimeMillis() : datos.id();
@@ -71,7 +71,7 @@ public class CatalogController {
 	}
 
 	@PutMapping("/productos/{id}")
-	@PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+	@PreAuthorize("hasRole('ADMIN')")
 	public ProductoResponse editarProducto(@PathVariable String id, @RequestBody ProductoRequest datos,
 			@AuthenticationPrincipal Jwt jwt) {
 		Producto producto = productoObligatorio(id);
@@ -85,7 +85,7 @@ public class CatalogController {
 	}
 
 	@DeleteMapping("/productos/{id}")
-	@PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<Void> eliminarProducto(@PathVariable String id, @AuthenticationPrincipal Jwt jwt) {
 		Producto producto = productoObligatorio(id);
 		validarPropietario(producto, jwt);
@@ -102,7 +102,7 @@ public class CatalogController {
 	}
 
 	@PostMapping("/ofertas")
-	@PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+	@PreAuthorize("hasRole('ADMIN')")
 	public OfertaResponse crearOferta(@RequestBody OfertaRequest datos, @AuthenticationPrincipal Jwt jwt) {
 		Producto producto = productoObligatorio(datos.productoId());
 		validarPropietario(producto, jwt);
@@ -116,7 +116,7 @@ public class CatalogController {
 	}
 
 	@DeleteMapping("/ofertas/{id}")
-	@PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<Void> eliminarOferta(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
 		Oferta oferta = ofertas.findById(id)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Oferta no encontrada."));
