@@ -299,7 +299,7 @@ public class ViniloveService {
 
 		Pedido pedido = new Pedido();
 		if (datos.usuarioId != null) {
-			pedido.setUsuario(usuarioObligatorio(datos.usuarioId));
+			pedido.setUsuario(asegurarComprador(datos.usuarioId, datos.nombre));
 		}
 		pedido.setNombreEntrega(datos.nombre.trim());
 		pedido.setDireccion(datos.direccion.trim());
@@ -330,7 +330,9 @@ public class ViniloveService {
 	}
 
 	public List<PedidoResponse> pedidosDe(Long usuarioId) {
-		usuarioObligatorio(usuarioId);
+		if (usuarioRepository.findById(usuarioId).isEmpty()) {
+			return List.of();
+		}
 		return pedidoRepository.findByUsuario_IdOrderByIdDesc(usuarioId).stream().map(this::aPedido).toList();
 	}
 
@@ -660,6 +662,18 @@ public class ViniloveService {
 	private Usuario usuarioObligatorio(Long id) {
 		return usuarioRepository.findById(id)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado."));
+	}
+
+	private Usuario asegurarComprador(Long id, String nombre) {
+		return usuarioRepository.findById(id).orElseGet(() -> {
+			String visible = nombre == null || nombre.isBlank() ? "Cliente" : nombre.trim();
+			if (visible.length() > 100) {
+				visible = visible.substring(0, 100);
+			}
+			usuarioRepository.insertarComprador(id, "C" + id, "cliente" + id + "@vinilove.local", visible, "cliente" + id);
+			return usuarioRepository.findById(id)
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado."));
+		});
 	}
 
 	private String idDeItem(ItemRequest item) {
